@@ -36,6 +36,7 @@
 #define PART_SIZE_KERNEL	(5 * 1024 * 1024)
 #define PART_SIZE_ROOTFS	(26 * 1024 * 1024)
 
+/* Increase eMMC partition size for tzsw, tzsw is written in DDR
 #if defined(CONFIG_CPU_EXYNOS5250_EVT1)
 #define PART_SIZE_TZSW		(156 * 1024)
 #elif defined(CONFIG_EXYNOS4412) || defined(CONFIG_EXYNOS4212)
@@ -43,6 +44,8 @@
 #else
 #define PART_SIZE_TZSW		(160 * 1024)
 #endif
+*/
+#define PART_SIZE_TZSW		(384 * 1024)
 
 #define MOVI_FWBL1_BLKCNT	(PART_SIZE_FWBL1 / MOVI_BLKSIZE)
 #define MOVI_BL1_BLKCNT		(PART_SIZE_BL1 / MOVI_BLKSIZE)

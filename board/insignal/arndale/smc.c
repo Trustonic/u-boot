@@ -66,7 +66,9 @@ typedef struct ld_image_info {
 #define CONFIG_PHY_SDRAM_BASE		(0x40000000)
 #define CONFIG_PHY_IRAM_BASE		(0x02020000)
 #define SMC_SECURE_CONTEXT_BASE		(CONFIG_PHY_IRAM_BASE + 0x4c00)
-#define CONFIG_PHY_TZSW_BASE		(CONFIG_PHY_IRAM_BASE + 0x8000)
+/*#define CONFIG_PHY_TZSW_BASE		(CONFIG_PHY_IRAM_BASE + 0x8000)*/
+/* 0xC000 0000 - 32 MB */
+#define CONFIG_PHY_TZSW_BASE		(0xbe000000)
 
 #define SMC_CMD_LOAD_UBOOT			(-230)
 #define SMC_CMD_COLDBOOT			(-231)
@@ -168,6 +170,25 @@ void coldboot(u32 boot_device)
 #else
 	info_image->signature_size = SMC_SIGNATURE_SIZE;
 #endif
+
+	/* Modify BL2 infos for MTK future use */
+	/* MTK variables :
+	   sys_mem_config.secureMem.start
+	   sys_mem_config.secureMem.size
+         */
+	((int *)0x0204f800)[18] = ((int *)0x0204f800)[18]+((int *)0x0204f800)[19]-CONFIG_TRUSTZONE_RESERVED_DRAM;
+	((int *)0x0204f800)[19] = CONFIG_TRUSTZONE_RESERVED_DRAM;
+
+	/* Jump code at 0x202 8000 to jump to CONFIG_PHY_TZSW_BASE then the SMC copies t-base binary 
+	/* from emmc to DDR at 0xBE00 0000 and jump to hard coded IRAM address : 0x0202 8000 */
+	/* Assembly code
+	   ldr     r0, =CONFIG_PHY_TZSW_BASE
+	   mov     pc, r0
+	 */
+
+	 *((int *)0x02028000) = 0xe51f0000;
+	 *((int *)0x02028004) = 0xe1a0f000;
+	 *((int *)0x02028008) = CONFIG_PHY_TZSW_BASE;
 
 	exynos_smc(SMC_CMD_COLDBOOT, boot_device, CONFIG_IMAGE_INFO_BASE, CONFIG_PHY_UBOOT_BASE);
 }
