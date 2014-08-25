@@ -396,7 +396,10 @@ void main_loop (void)
 		s = getenv ("bootcmd");
 
 	debug ("### main_loop: bootcmd=\"%s\"\n", s ? s : "<UNDEFINED>");
-
+#ifdef CONFIG_CMD_TBASE_VERSION_AUTO_PRINT
+	char getMcVersionCmd[] = "mc_version";
+	run_command (getMcVersionCmd, 0);
+#endif
 	if (bootdelay >= 0 && s && !abortboot (bootdelay)) {
 # ifdef CONFIG_AUTOBOOT_KEYED
 		int prev = disable_ctrlc(1);	/* disable Control C checking */

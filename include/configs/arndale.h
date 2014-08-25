@@ -218,6 +218,8 @@
 #define CONFIG_MD5
 #define CONFIG_CMD_MD5SUM
 
+#define CONFIG_CMD_TBASE_VERSION
+#define CONFIG_CMD_TBASE_VERSION_AUTO_PRINT
 #undef CONFIG_SYS_NAND_QUIET_TEST
 #undef CONFIG_SYS_ONENAND_QUIET_TEST
 
@@ -380,7 +382,7 @@
  * machine type
  */
 
-/*#define MACH_TYPE       		3825	/* SMDK5250 machine ID */
+//#define MACH_TYPE       		3825	/* SMDK5250 machine ID */
 #define MACH_TYPE			4274	/* Arndale */
 
 #define CONFIG_ENV_OFFSET		0x0007C000
