@@ -158,6 +158,13 @@ endif
 COBJS-$(CONFIG_CMD_XIMG) += cmd_ximg.o
 COBJS-$(CONFIG_YAFFS2) += cmd_yaffs2.o
 COBJS-$(CONFIG_VFD) += cmd_vfd.o
+COBJS-$(CONFIG_CMD_TBASE_GET_VERSION) += cmd_getTbaseVersion.o
+ifdef CONFIG_CMD_TBASE_MOBILOAD
+COBJS-y += cmd_mobiload.o
+ifdef CONFIG_TBASE_MOBILOAD_EMBEDDED
+SOBJS := mobi_driv.o
+endif
+endif
 
 # others
 COBJS-$(CONFIG_DDR_SPD) += ddr_spd.o
@@ -171,13 +178,16 @@ COBJS-$(CONFIG_LYNXKDI) += lynxkdi.o
 COBJS-$(CONFIG_MODEM_SUPPORT) += modem.o
 COBJS-$(CONFIG_UPDATE_TFTP) += update.o
 COBJS-$(CONFIG_USB_KEYBOARD) += usb_kbd.o
-COBJS-$(CONFIG_CMD_TBASE_VERSION) += cmd_mobiload.o
+
 
 COBJS	:= $(sort $(COBJS-y))
 XCOBJS	:= $(sort $(XCOBJS-y))
-SRCS	:= $(COBJS:.o=.c) $(XCOBJS:.o=.c)
-OBJS	:= $(addprefix $(obj),$(COBJS))
+SRCS	:= $(COBJS:.o=.c) $(XCOBJS:.o=.c) $(SOBJS:.o=.S)
+OBJS	:= $(addprefix $(obj),$(COBJS) $(SOBJS))
 XOBJS	:= $(addprefix $(obj),$(XCOBJS))
+
+
+
 
 CPPFLAGS += -I..
 

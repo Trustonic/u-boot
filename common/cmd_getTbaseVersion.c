@@ -23,23 +23,24 @@
 
 #include <common.h>
 #include <command.h>
-
-
 #include "mcimcp.h"
 #include "mcinq.h"
+
+
 
 #define MC_SMC_N_SIQ	0x4
 
 #if defined(CONFIG_TBASE_ARM_SMC_CALLING_CONVERSION)
-#define FC_MASK				(0x80000000)
-#define FC_SMC64_MASK		(0x40000000)
-#define FC_BASE				(0x3f000000 | FC_MASK | FC_SMC64_MASK )
+#define FC_MASK			(0x80000000)
+#define FC_SMC64_MASK	(0x40000000)
+#define FC_BASE			(0x3f000000 | FC_MASK | FC_SMC64_MASK )
 #define MC_FC_INIT		(FC_BASE + 1)
 #define MC_FC_INFO		(FC_BASE + 2)
 #else
-#define MC_FC_INIT			-1
-#define MC_FC_INFO			-2
+#define MC_FC_INIT		-1
+#define MC_FC_INFO		-2
 #endif
+
 /* Don't try to to do more than 50 SIQ tries */
 #define MC_MAX_SIQ		50
 
@@ -62,31 +63,31 @@
 #define NQ_LENGTH		280
 #define MCP_LENGTH		144
 
+#define MAJOR_VERSION(v)	( v >>16)
+#define MINOR_VERSION(v)	(v & 0xffff)
+
 /* Use the arch_extension sec pseudo op before switching to secure world */
 #if defined(__GNUC__) && \
 	defined(__GNUC_MINOR__) && \
 	defined(__GNUC_PATCHLEVEL__) && \
 	((__GNUC__ * 10000 + __GNUC_MINOR__ * 100 + __GNUC_PATCHLEVEL__)) \
-	>= 40502 &&  __GNUC_MINOR__ < 8
+	>= 40502 && __GNUC_MINOR__ < 8
 #define MC_ARCH_EXTENSION_SEC
 #endif
 
-#ifdef CONFIG_TBASE_MOBILOAD_EMBEDDED
-// Embedded driver start and end address
-extern uint8_t *mobi_drv, *mobi_drv_end;
-#endif
+
 
 // MCI buffer is one page in size and aligned on a page boundary
 static uint8_t mci[MCI_SIZE] __attribute__((aligned(0x1000)));
 static uint8_t *nq;
 static volatile mcpBuffer_ptr mcp;
 
-static uint8_t tci[TCI_SIZE]  __attribute__((aligned(0x1000)));
-
 struct fc_generic {
 	uint32_t cmd;
 	uint32_t param[3];
 };
+
+
 
 static inline long _smc(struct fc_generic *fc)
 {
@@ -129,14 +130,14 @@ static int mc_info(uint32_t ext_info_id, uint32_t *state, uint32_t *ext_info)
 	int ret = 0;
 	struct fc_generic fc_info;
 
-
 	//Prepare and send t-base INFO command
 	memset(&fc_info, 0, sizeof(fc_info));
 	fc_info.cmd = MC_FC_INFO;
 	fc_info.param[0] = ext_info_id;
-	//printf("cmd_mobiload: send SMC fc_info <- cmd=0x%08x, ext_info_id=0x%08x\n", fc_info.cmd, ext_info_id);
+	//printf("cmd_getTbaseVersion: send SMC fc_info <- cmd=0x%08x, ext_info_id=0x%08x\n", fc_info.cmd, ext_info_id);
 	_smc(&fc_info);
-	//printf("cmd_mobiload: SMC fc_info returned -> r=0x%08x ret=0x%08x state=0x%08x ext_info=0x%08x\n",
+
+	//printf("cmd_getTbaseVersion: SMC fc_info returned -> r=0x%08x ret=0x%08x state=0x%08x ext_info=0x%08x\n",
 	//	  fc_info.cmd,
 	//	  fc_info.param[0],
 	//	  fc_info.param[1],
@@ -178,32 +179,14 @@ static int32_t get_notification(void)
 	return -1;
 }
 
-static int tbase_load_driver(void *buf, size_t size)
+static int get_tbaseVersion(mcpMessage_ptr msg)
 {
 	int ret = 0;
 	int i;
 
-	mclfHeaderV2_ptr header = buf;
-	// printf("cmd_mobiload: t-base driver address %x, size = %u!\n", buf, size);
-
-	// Now we have the driver in memory, setup the MCP
-	memset(&tci, 0x0, sizeof(TCI_SIZE));
-	mcp->mcpMessage.cmdOpen.cmdHeader.cmdId = MC_MCP_CMD_OPEN_SESSION;
-	mcp->mcpMessage.cmdOpen.uuid = header->uuid;
-	mcp->mcpMessage.cmdOpen.wsmTypeTci = WSM_CONTIGUOUS | WSM_WSM_UNCACHED;
-	mcp->mcpMessage.cmdOpen.adrTciBuffer = ((uint32_t)tci) & ~(PAGE_MASK);
-	mcp->mcpMessage.cmdOpen.ofsTciBuffer = ((uint32_t)tci) & PAGE_MASK;
-	mcp->mcpMessage.cmdOpen.lenTciBuffer = TCI_SIZE;
-
-	// check if load data is provided
-	mcp->mcpMessage.cmdOpen.wsmTypeLoadData = WSM_CONTIGUOUS | WSM_WSM_UNCACHED;
-	mcp->mcpMessage.cmdOpen.adrLoadData = ((uint32_t)buf) & ~(PAGE_MASK);
-	mcp->mcpMessage.cmdOpen.ofsLoadData = ((uint32_t)buf) & PAGE_MASK;
-	mcp->mcpMessage.cmdOpen.lenLoadData = size;
-	memcpy(&mcp->mcpMessage.cmdOpen.tlHeader, header, sizeof(mclfHeader_t));
-
+	msg->cmdGetMobiCoreVersion.cmdHeader.cmdId = MC_MCP_CMD_GET_MOBICORE_VERSION;
 	put_notification(0);
-
+    
 	for (i = 0; i < MC_MAX_SIQ; i++) {
 		mc_nsiq();
 
@@ -211,18 +194,10 @@ static int tbase_load_driver(void *buf, size_t size)
 			break;
 		}
 	}
+    // Check that we have not reach the maximum number of tries.
 	if (i == MC_MAX_SIQ) {
-		printf("cmd_mobiload: t-base RTM did not ack the open command!\n");
+		printf("cmd_getTbaseVersion: t-base RTM did not ack the open command!\n");
 		ret = -1;
-	}
-
-	for (i = 0; i < MC_MAX_SIQ || mcp->mcFlags.schedule; i++) {
-		mc_nsiq();
-		break;
-	}
-	if (i == MC_MAX_SIQ) {
-		printf("cmd_mobiload: t-base is not yet IDLE - driver is probably missbehaving!\n");
-		return -1;
 	}
 
 	return ret;
@@ -241,15 +216,15 @@ static int mci_setup(void)
 	//Prepare and send t-base INIT command
 	fc_init.cmd = MC_FC_INIT;
 	// Set MCI as uncached
-	fc_init.param[0] = (virt_to_phys((ulong)mci) | 0x1U);
+	fc_init.param[0] = ( virt_to_phys((ulong)mci) | 0x1U);
 	fc_init.param[1] = NQ_LENGTH;
 	// mcp_offset = 0x118 mcp_length=0x90
 	fc_init.param[2] = (NQ_LENGTH<< 16) | MCP_LENGTH;
 	_smc(&fc_init);
 
 	if(fc_init.param[0]) {
-		printf("cmd_mobiload: t-base INIT response = %x.\n", fc_init.param[0]);
-		printf("cmd_mobiload: t-base MCI init failed!\n");
+		printf("cmd_getTbaseVersion: t-base INIT response = %x.\n", fc_init.param[0]);
+		printf("cmd_getTbaseVersion: t-base MCI init failed!\n");
 		return -1;
 	}
 
@@ -266,9 +241,10 @@ static int mci_setup(void)
 	}
 	// Check that we have not reach the maximum number of tries.
 	if (i == MC_MAX_SIQ) {
-		printf("cmd_mobiload: t-base RTM failed to initialize.\n");
+		printf("cmd_getTbaseVersion: t-base RTM failed to initialize.\n");
 		return -1;
 	}
+
 	// Initialize mcp (buffer on MobiCore communication protocol and notification queue)
 	mcp = (mcpBuffer_ptr)((uint8_t*)mci + mci_offset + NQ_LENGTH);
 	nq = (uint8_t*)mci + mci_offset;
@@ -285,7 +261,7 @@ static int mci_unmap(void)
 	for(i = 0; i < MC_MAX_SIQ; i++)  {
 		uint32_t state, ext_info;
 		mc_nsiq();
-        
+
 		// Read responce and check if initialized
 		mc_info(0, &state, &ext_info);
 		if(state != MC_STATUS_INITIALIZED) {
@@ -294,58 +270,64 @@ static int mci_unmap(void)
 	}
 	// Check that we have not reach the maximum number of tries.
 	if (i == MC_MAX_SIQ) {
-		printf("cmd_mobiload: t-base RTM failed to uninitialize!\n");
+		printf("cmd_getTbaseVersion: t-base RTM failed to uninitialize!\n");
 		return -1;
 	}
+
 	return 0;
 }
 
-static int do_mobicore_load(cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[])
+static int do_getTbaseVersion(void)
 {
-	ulong mobi_drv_addr;
-	size_t mobi_drv_size;
-
-	// Too many arguments or incomplete, print usage
-
-	switch(argc) {
-		case 3:
-			mobi_drv_addr = simple_strtoul(argv[1], NULL, 16);
-			mobi_drv_size = simple_strtoul(argv[2], NULL, 16);
-			break;
-#ifdef CONFIG_TBASE_MOBILOAD_EMBEDDED
-		case 1:
-			mobi_drv_addr = &mobi_drv;
-			mobi_drv_size = (size_t)&mobi_drv_end - (size_t)&mobi_drv;
-			break;
-#endif
-		default:
-			printf("cmd_mobiload: Invalid number of arguments!\n");
-			return -1;
-	}
-
 	/* Initialize the <t-base communication interface */
 	if(mci_setup())
 	{
-		printf("cmd_mobiload: t-base MCI init failed!\n");
+		printf("cmd_getTbaseVersion: t-base MCI init failed!\n");
 		return -1;
 	}
 
-	if (tbase_load_driver((void *)mobi_drv_addr, mobi_drv_size)) {
-		printf("cmd_mobiload: t-base Driver loading failed!\n");
-	}
+	get_tbaseVersion(&mcp->mcpMessage);
+	printf("Get t-base info\n");
+	printf("    Product ID is: %s\n",mcp->mcpMessage.rspGetMobiCoreVersion.versionInfo.productId);
+	printf("    MCI version is: %d.%d\n",
+	       MAJOR_VERSION(mcp->mcpMessage.rspGetMobiCoreVersion.versionInfo.versionMci),
+	       MINOR_VERSION(mcp->mcpMessage.rspGetMobiCoreVersion.versionInfo.versionMci));
+	printf("    MCLF version is: %d.%d\n",
+	       MAJOR_VERSION(mcp->mcpMessage.rspGetMobiCoreVersion.versionInfo.versionMclf),
+	       MINOR_VERSION(mcp->mcpMessage.rspGetMobiCoreVersion.versionInfo.versionMclf));
+	printf("    Container version is: %d.%d\n",
+	       MAJOR_VERSION(mcp->mcpMessage.rspGetMobiCoreVersion.versionInfo.versionContainer),
+	       MINOR_VERSION(mcp->mcpMessage.rspGetMobiCoreVersion.versionInfo.versionContainer));
+	printf("    McConfig version is: %d.%d\n",
+	       MAJOR_VERSION(mcp->mcpMessage.rspGetMobiCoreVersion.versionInfo.versionMcConfig),
+	       MINOR_VERSION(mcp->mcpMessage.rspGetMobiCoreVersion.versionInfo.versionMcConfig));
+	printf("    TLAPI version is: %d.%d\n",
+	       MAJOR_VERSION(mcp->mcpMessage.rspGetMobiCoreVersion.versionInfo.versionTlApi),
+	       MINOR_VERSION(mcp->mcpMessage.rspGetMobiCoreVersion.versionInfo.versionTlApi));
+	printf("    DRAPI version is: %d.%d\n",
+	       MAJOR_VERSION(mcp->mcpMessage.rspGetMobiCoreVersion.versionInfo.versionDrApi),
+	       MINOR_VERSION(mcp->mcpMessage.rspGetMobiCoreVersion.versionInfo.versionDrApi));
+	//printf("    CMP version is: %d.%d\n",
+	//       MAJOR_VERSION(mcp->mcpMessage.rspGetMobiCoreVersion.versionInfo.versionCmp),
+	//       MINOR_VERSION(mcp->mcpMessage.rspGetMobiCoreVersion.versionInfo.versionCmp));
 
 	/* Unmap <t-base communication interface - otherwise Linux daemon will fail */
 	if (mci_unmap())
 	{
-		printf("cmd_mobiload: t-base RTM failed to uninitialize!\n");
+		printf("cmd_getTbaseVersion: t-base RTM failed to uninitialize!\n");
 		return -1;
 	}
 
 	return 0;
 }
 
+static int doCmd_getTbaseVersion(cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[])
+{
+	return do_getTbaseVersion();
+}
+
 U_BOOT_CMD(
-	tbase_mobiload, 3, 0, do_mobicore_load,
-	"mobiload [hex addr] [hex size]",
-	"starts <t-base trustlet/secure driver from address or embedded (no param is confid set)."
+	tbase_version,	CONFIG_SYS_MAXARGS,	1,	doCmd_getTbaseVersion,
+	"get tbase version information",
+	""
 );

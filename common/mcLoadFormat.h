@@ -1,60 +1,37 @@
+/*
+ * Copyright (c) 2013 TRUSTONIC LIMITED
+ * All rights reserved
+ *
+ * The present software is the confidential and proprietary information of
+ * TRUSTONIC LIMITED. You shall not disclose the present software and shall
+ * use it only in accordance with the terms of the license agreement you
+ * entered into with TRUSTONIC LIMITED. This software may be subject to
+ * export or import laws in certain countries.
+ */
 /**
- * @defgroup MCLF   MobiCore Load Format
- *
- * @defgroup MCLF_VER    MCLF Versions
- * @ingroup MCLF
- *
- * @addtogroup MCLF
- * @{
- *
  * MobiCore Load Format declarations.
  *
  * Holds the definitions for the layout of MobiCore Trustlet Blob.
- * <!-- Copyright Trustonic 2013-2014 -->
- *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions
- * are met:
- * 1. Redistributions of source code must retain the above copyright
- *    notice, this list of conditions and the following disclaimer.
- * 2. Redistributions in binary form must reproduce the above copyright
- *    notice, this list of conditions and the following disclaimer in the
- *    documentation and/or other materials provided with the distribution.
- * 3. The name of the author may not be used to endorse or promote
- *    products derived from this software without specific prior
- *    written permission.
- *
- * THIS SOFTWARE IS PROVIDED BY THE AUTHOR ``AS IS'' AND ANY EXPRESS
- * OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
- * WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
- * ARE DISCLAIMED.  IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY
- * DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
- * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE
- * GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
- * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
- * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
- * NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
- * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 #ifndef MCLOADFORMAT_H_
 #define MCLOADFORMAT_H_
 
 #include "mcUuid.h"
+#include "mcSuid.h"
+#include "mcDriverId.h"
 
 #define MCLF_VERSION_MAJOR   2
-#define MCLF_VERSION_MINOR   2
-#define MCLF_VERSION_MINOR_CURRENT   1
+#define MCLF_VERSION_MINOR   4
+#define MCLF_VERSION_MINOR_CURRENT   3
 
 #define MC_SERVICE_HEADER_MAGIC_BE         ((uint32_t)('M'|('C'<<8)|('L'<<16)|('F'<<24))) /**< "MCLF" in big endian integer representation */
 #define MC_SERVICE_HEADER_MAGIC_LE         ((uint32_t)(('M'<<24)|('C'<<16)|('L'<<8)|'F')) /**< "MCLF" in little endian integer representation */
 #define MC_SERVICE_HEADER_MAGIC_STR         "MCLF"                                        /**< "MCLF" as string */
 
 /** @name MCLF flags */
-/*@{*/
 #define MC_SERVICE_HEADER_FLAGS_PERMANENT               (1U << 0) /**< Loaded service cannot be unloaded from MobiCore. */
 #define MC_SERVICE_HEADER_FLAGS_NO_CONTROL_INTERFACE    (1U << 1) /**< Service has no WSM control interface. */
 #define MC_SERVICE_HEADER_FLAGS_DEBUGGABLE              (1U << 2) /**< Service can be debugged. */
-/*@}*/
 
 #if !defined(ADDR_T_DEFINED)
 #define ADDR_T_DEFINED
@@ -68,7 +45,8 @@ typedef enum {
     SERVICE_TYPE_ILLEGAL    = 0,        /**< Service type is invalid. */
     SERVICE_TYPE_DRIVER     = 1,        /**< Service is a driver. */
     SERVICE_TYPE_SP_TRUSTLET   = 2,     /**< Service is a Trustlet. */
-    SERVICE_TYPE_SYSTEM_TRUSTLET = 3    /**< Service is a system Trustlet. */
+    SERVICE_TYPE_SYSTEM_TRUSTLET = 3,   /**< Service is a system Trustlet. */
+//    SERVICE_TYPE_SP_TA = 4,             /**< Service is a Trusted Application for t-base 300. */
 } serviceType_t;
 
 /**
@@ -97,8 +75,6 @@ typedef struct {
     uint32_t        version;    /**< Version of the MCLF header structure. */
 } mclfIntro_t, *mclfIntro_ptr;
 
-/** @} */
-
 
 // Version 2 /////////////////////////////////////////////////////////////////////////////////////////////////////////
 /**
@@ -106,7 +82,6 @@ typedef struct {
  * @ingroup MCLF_VER
  *
  * @addtogroup MCLF_VER_V2
- * @{
  */
 
 /**
@@ -120,7 +95,7 @@ typedef struct {
 
     uint32_t                numInstances;    /**< Number of instances which can be run simultaneously. */
     mcUuid_t                uuid;            /**< Loadable service unique identifier (UUID). */
-    uint32_t            driverId;        /**< If the serviceType is SERVICE_TYPE_DRIVER the Driver ID is used. */
+    mcDriverId_t            driverId;        /**< If the serviceType is SERVICE_TYPE_DRIVER the Driver ID is used. */
     uint32_t                numThreads;      /**<
                                               * <pre>
                                               * <br>Number of threads (N) in a service depending on service type.<br>
@@ -141,7 +116,28 @@ typedef struct {
 //    uint32_t                permittedHwCf;  /**< Starting 2.3: If nonzero, hw configuration which is allowed to execute binary */
 
 } mclfHeaderV2_t, *mclfHeaderV2_ptr;
-/** @} */
+
+
+/**
+ * Version 2.3 MCLF header.
+ */
+typedef struct {
+    mclfHeaderV2_t          mclfHeaderV2;
+    mcSuid_t                permittedSuid;  /**< Starting 2.3: If nonzero, suid which is allowed to execute binary */
+    uint32_t                permittedHwCfg; /**< Starting 2.3: If nonzero, hw configuration which is allowed to execute binary */
+} mclfHeaderV23_t, *mclfHeaderV23_ptr;
+
+
+/**
+ * Version 2.4 MCLF header.
+ */
+typedef struct {
+    mclfHeaderV23_t         mclfHeaderV2;
+    uint32_t                gp_level;           /**<Starting 2.4: 0 for legacy MobiCore trustlets and 1 for Potato TAs. */
+    uint32_t                attestationOffset;  /**<Starting 2.4: Offset of attestation data area. */
+
+} mclfHeaderV24_t, *mclfHeaderV24_ptr;
+
 
 
 /**
@@ -171,12 +167,12 @@ typedef struct {
     uint32_t                drApiVers;      /**< DrApi version used when building trustlet.
                                                  Value set at compile time for drivers. 0 for trustlets.
                                                  Required always. */
+    addr_t                  ta_properties;  /**< address of _TA_Properties in the TA. */
 } mclfTextHeader_t, *mclfTextHeader_ptr;
 
 // Version 2 ///////////////////////////////////////////////////////////////////////////////////////////////////
 /**
  * @addtogroup MCLF
- * @{
  */
 
 /** MCLF header */
@@ -185,7 +181,16 @@ typedef union {
     mclfHeaderV2_t mclfHeaderV2;    /**< Version 2 header */
 } mclfHeader_t, *mclfHeader_ptr;
 
-#endif /* MCLOADFORMAT_H_ */
+// Version 2.3 changes header definition
+// Above structure is hard-coded into many places.
+// So new changes are made into separate structure.
+#define MCLF_HEADER_SIZE_V23 (0x080)
 
-/** @} */
+// Actual (known) length can be calculated using macro
+#define MCLF_HEADER_SIZE(version) ((version)>0x20002?(MCLF_HEADER_SIZE_V23):sizeof(mclfHeader_t))
+
+// This is only minimum size, so nothing below this makes sense.
+#define MCLF_BINARY_MIN_SIZE(version) (MCLF_HEADER_SIZE_V23+sizeof(mclfTextHeader_t))
+
+#endif /* MCLOADFORMAT_H_ */
 

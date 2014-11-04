@@ -218,8 +218,25 @@
 #define CONFIG_MD5
 #define CONFIG_CMD_MD5SUM
 
-#define CONFIG_CMD_TBASE_VERSION
-#define CONFIG_CMD_TBASE_VERSION_AUTO_PRINT
+/** Enable <t-base Mobiload feature 
+ * (Load t-base driver in uboot to directly have it accessible before Linux available). */
+#define CONFIG_CMD_TBASE_MOBILOAD
+/** Command that allow uboot to get <t-base version. */
+#define CONFIG_CMD_TBASE_GET_VERSION
+
+/** Config to include <t-base driver directly in uboot
+ * and load it automatically */
+/*  #define CONFIG_TBASE_MOBILOAD_EMBEDDED */
+/** Config to automatically get t-base version at uboot boot time */
+#define CONFIG_TBASE_GET_VERSION_AUTO_PRINT
+/** Config to select the SMC calling convention to use :
+ * - must not be defined on ARMv7 <t-base version.
+ * - must be define on ARMv8 <t-base version.
+ */
+/* #define CONFIG_TBASE_ARM_SMC_CALLING_CONVERSION */
+
+
+
 #undef CONFIG_SYS_NAND_QUIET_TEST
 #undef CONFIG_SYS_ONENAND_QUIET_TEST
 
