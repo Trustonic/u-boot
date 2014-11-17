@@ -268,6 +268,38 @@ uart_asm_init:
 	ldr	r1, =0x4f
 	str	r1, [r0, #UTXH_OFFSET]		@'O'
 
+	ldr	r1, =0x20
+	str	r1, [r0, #UTXH_OFFSET]		@' '
+
+	ldr	r1, =0x57
+	str	r1, [r0, #UTXH_OFFSET]		@'W'
+
+	ldr	r1, =0x61
+	str	r1, [r0, #UTXH_OFFSET]		@'a'
+
+	ldr	r1, =0x69
+	str	r1, [r0, #UTXH_OFFSET]		@'i'
+
+	ldr	r1, =0x74
+	str	r1, [r0, #UTXH_OFFSET]		@'t'
+
+	ldr	r1, =0x20
+	str	r1, [r0, #UTXH_OFFSET]		@' '
+
+	ldr	r1, =0x31
+	str	r1, [r0, #UTXH_OFFSET]		@'1'
+
+	ldr	r1, =0x38
+	str	r1, [r0, #UTXH_OFFSET]		@'8'
+
+	ldr	r1, =0x73
+	str	r1, [r0, #UTXH_OFFSET]		@'s'
+
+	ldr	r1, =0x2E
+	str	r1, [r0, #UTXH_OFFSET]		@'.'
+	str	r1, [r0, #UTXH_OFFSET]		@'.'
+	str	r1, [r0, #UTXH_OFFSET]		@'.'
+
 	mov	pc, lr
 
 load_uboot:

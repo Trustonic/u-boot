@@ -190,6 +190,7 @@ void coldboot(u32 boot_device)
 	 *((int *)0x02028004) = 0xe1a0f000;
 	 *((int *)0x02028008) = CONFIG_PHY_TZSW_BASE;
 
+    // This seems to take 18s now with 1MB partition size
 	exynos_smc(SMC_CMD_COLDBOOT, boot_device, CONFIG_IMAGE_INFO_BASE, CONFIG_PHY_UBOOT_BASE);
 }
 
